@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Role-based access control based on secure auth claims
+    function isAdmin() {
+      return isAuthenticated() && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
+    }
+
+    function isStaff() {
+      return isAuthenticated() && (isAdmin() || request.auth.token.role == 'staff');
+    }
+
+    // User profile: user themselves or admin/staff
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isStaff();
+      allow write: if isOwner(userId) || isAdmin();
+      
+      // User's weight logs
+      match /weight_logs/{logId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // User's workout sessions & tracker history
+      match /workout_sessions/{sessionId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // User's membership status & transactions
+      match /membership/{docId} {
+        allow read: if isOwner(userId) || isStaff();
+        allow write: if isOwner(userId) || isAdmin();
+      }
+
+      // User's turnstile check-in scan history
+      match /checkin_history/{checkinId} {
+        allow read: if isOwner(userId) || isStaff();
+        allow write: if isOwner(userId) || isStaff();
+      }
+    }
+
+    // Payments collection: user creates request; admin verifies & approves/rejects
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Membership Plans: Public read for members; Admin write/update
+    match /membership_plans/{planId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Exercise Library: Public read-only for authenticated members; Admin write
+    match /exercises/{exerciseId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Checkin History collection group query: Staff/Admin read & write
+    match /{path=**}/checkin_history/{checkinId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
