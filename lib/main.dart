@@ -5,11 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'app/app.dart';
 import 'app/theme/app_colors.dart';
+import 'core/widgets/friendly_error_view.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Set friendly error screen for unexpected widget errors
+  ErrorWidget.builder = (details) => FriendlyErrorView(details: details);
 
   // Initialize date formatting locale (id_ID)
   await initializeDateFormatting('id_ID', null);

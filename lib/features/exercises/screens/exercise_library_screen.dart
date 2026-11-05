@@ -39,6 +39,8 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   }
 
   void _openFilterModal(BuildContext context) {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceElevated,

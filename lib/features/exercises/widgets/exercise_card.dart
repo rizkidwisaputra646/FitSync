@@ -46,44 +46,49 @@ class ExerciseCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  CachedNetworkImage(
-                    imageUrl: exercise.thumbnailUrl ?? exercise.gifUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (ctx, url) => Container(
-                      color: AppColors.surfaceHighlight,
-                      child: const Center(
-                        child: Icon(
-                          Icons.fitness_center_rounded,
-                          color: AppColors.textMuted,
-                          size: 32,
+              child: Container(
+                color: Colors.white,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(6.0),
+                      child: CachedNetworkImage(
+                        imageUrl: exercise.thumbnailUrl ?? exercise.gifUrl,
+                        fit: BoxFit.contain,
+                        placeholder: (ctx, url) => Container(
+                          color: AppColors.surfaceHighlight,
+                          child: const Center(
+                            child: Icon(
+                              Icons.fitness_center_rounded,
+                              color: AppColors.textMuted,
+                              size: 32,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (ctx, url, err) => Container(
+                          color: AppColors.surfaceHighlight,
+                          child: const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.fitness_center_rounded,
+                                color: AppColors.primary,
+                                size: 36,
+                              ),
+                              SizedBox(height: 6),
+                              Text(
+                                'FitSync Media',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                    errorWidget: (ctx, url, err) => Container(
-                      color: AppColors.surfaceHighlight,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.fitness_center_rounded,
-                            color: AppColors.primary,
-                            size: 36,
-                          ),
-                          SizedBox(height: 6),
-                          Text(
-                            'Demo GIF Cloudflare R2',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
 
                   // Difficulty badge top-right
                   Positioned(
@@ -114,8 +119,9 @@ class ExerciseCard extends StatelessWidget {
               ),
             ),
           ),
+        ),
 
-          // Exercise Details
+        // Exercise Details
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(

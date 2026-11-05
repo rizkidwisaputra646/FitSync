@@ -72,6 +72,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Form(
             key: _formKey,
@@ -96,6 +97,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _nameController,
                   label: 'Nama Lengkap',
                   hint: 'Contoh: Alex Pratama',
+                  textInputAction: TextInputAction.next,
                   prefixIcon: const Icon(
                     Icons.person_outline_rounded,
                     color: AppColors.textSecondary,
@@ -118,6 +120,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'Alamat Email',
                   hint: 'nama@domain.com',
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
                   prefixIcon: const Icon(
                     Icons.mail_outline_rounded,
                     color: AppColors.textSecondary,
@@ -140,6 +143,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'Kata Sandi',
                   hint: 'Minimal 6 karakter',
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.next,
                   prefixIcon: const Icon(
                     Icons.lock_outline_rounded,
                     color: AppColors.textSecondary,
@@ -176,6 +180,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   label: 'Konfirmasi Kata Sandi',
                   hint: 'Masukkan ulang kata sandi',
                   obscureText: _obscureConfirmPassword,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
                   prefixIcon: const Icon(
                     Icons.lock_reset_rounded,
                     color: AppColors.textSecondary,

@@ -137,27 +137,35 @@ final membershipActionControllerProvider =
   return MembershipActionController(ref);
 });
 
-// 5. Dynamic 60-Second Rotating QR State
+// 5. Dynamic 60-Second Rotating Realtime QR State
 class DynamicQrState {
   final QrCheckinToken token;
   final int secondsRemaining;
   final double progress; // 1.0 (baru) -> 0.0 (habis)
+  final QrSyncStatus syncStatus;
+  final String? statusMessage;
 
   const DynamicQrState({
     required this.token,
     required this.secondsRemaining,
     required this.progress,
+    this.syncStatus = QrSyncStatus.active,
+    this.statusMessage,
   });
 
   DynamicQrState copyWith({
     QrCheckinToken? token,
     int? secondsRemaining,
     double? progress,
+    QrSyncStatus? syncStatus,
+    String? statusMessage,
   }) {
     return DynamicQrState(
       token: token ?? this.token,
       secondsRemaining: secondsRemaining ?? this.secondsRemaining,
       progress: progress ?? this.progress,
+      syncStatus: syncStatus ?? this.syncStatus,
+      statusMessage: statusMessage ?? this.statusMessage,
     );
   }
 }
@@ -165,6 +173,7 @@ class DynamicQrState {
 class DynamicQrNotifier extends StateNotifier<DynamicQrState?> {
   final Ref _ref;
   Timer? _timer;
+  StreamSubscription<DocumentSnapshot>? _qrSnapshotSub;
 
   DynamicQrNotifier(this._ref) : super(null) {
     _init();
@@ -179,6 +188,7 @@ class DynamicQrNotifier extends StateNotifier<DynamicQrState?> {
           _startTimer();
         } else {
           _stopTimer();
+          _qrSnapshotSub?.cancel();
           state = null;
         }
       });
@@ -191,7 +201,42 @@ class DynamicQrNotifier extends StateNotifier<DynamicQrState?> {
     }
   }
 
-  void _generateNewToken(UserMembership membership) {
+  void _listenToActiveToken(String userId) {
+    _qrSnapshotSub?.cancel();
+    if (!FirebaseService.isInitialized) return;
+
+    try {
+      _qrSnapshotSub = FirebaseFirestore.instance
+          .collection('active_qr_tokens')
+          .doc(userId)
+          .snapshots()
+          .listen((snapshot) {
+        if (!snapshot.exists || snapshot.data() == null) return;
+        final data = snapshot.data() as Map<String, dynamic>;
+        final isUsed = data['used'] == true;
+        final currentTokenId = data['tokenId'] as String?;
+
+        if (isUsed && state != null && state!.token.tokenId == currentTokenId) {
+          // Realtime trigger: Petugas scanner baru saja memvalidasi token ini di turnstile!
+          state = state!.copyWith(
+            syncStatus: QrSyncStatus.used,
+            statusMessage: 'Check-in Berhasil! Memperbarui QR...',
+          );
+
+          // Otomatis putar token baru untuk check-in selanjutnya
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            final currentMembership =
+                _ref.read(activeMembershipProvider).valueOrNull;
+            if (currentMembership != null && currentMembership.isActive) {
+              _generateNewToken(currentMembership);
+            }
+          });
+        }
+      }, onError: (_) {});
+    } catch (_) {}
+  }
+
+  Future<void> _generateNewToken(UserMembership membership) async {
     final token = QrCheckinToken.create(
       userId: membership.userId,
       membershipId: membership.id,
@@ -202,7 +247,50 @@ class DynamicQrNotifier extends StateNotifier<DynamicQrState?> {
       token: token,
       secondsRemaining: QrCheckinToken.tokenTtlSeconds,
       progress: 1.0,
+      syncStatus: QrSyncStatus.refreshing,
+      statusMessage: 'Menyinkronkan ke server...',
     );
+
+    _listenToActiveToken(membership.userId);
+
+    if (FirebaseService.isInitialized) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('active_qr_tokens')
+            .doc(membership.userId)
+            .set({
+          'tokenId': token.tokenId,
+          'userId': membership.userId,
+          'membershipId': membership.id,
+          'memberCode': membership.generatedCode,
+          'epochSeconds': token.epochSeconds,
+          'rawPayload': token.rawPayload,
+          'used': false,
+          'status': 'active',
+          'createdAt': FieldValue.serverTimestamp(),
+          'expiresAtEpoch': token.epochSeconds + QrCheckinToken.tokenTtlSeconds,
+        });
+
+        if (state != null && state!.token.tokenId == token.tokenId) {
+          state = state!.copyWith(
+            syncStatus: QrSyncStatus.active,
+            statusMessage: 'QR Aktif & Siap Dipindai',
+          );
+        }
+      } catch (e) {
+        if (state != null && state!.token.tokenId == token.tokenId) {
+          state = state!.copyWith(
+            syncStatus: QrSyncStatus.error,
+            statusMessage: 'Mode Lokal (Sinkronisasi ditangguhkan)',
+          );
+        }
+      }
+    } else {
+      state = state!.copyWith(
+        syncStatus: QrSyncStatus.active,
+        statusMessage: 'Mode Simulasi (Lokal)',
+      );
+    }
   }
 
   void _startTimer() {
@@ -219,6 +307,10 @@ class DynamicQrNotifier extends StateNotifier<DynamicQrState?> {
         final currentMembership =
             _ref.read(activeMembershipProvider).valueOrNull;
         if (currentMembership != null && currentMembership.isActive) {
+          state = state!.copyWith(
+            syncStatus: QrSyncStatus.expired,
+            statusMessage: 'QR Kedaluwarsa. Memperbarui...',
+          );
           _generateNewToken(currentMembership);
         } else {
           _stopTimer();
@@ -249,6 +341,7 @@ class DynamicQrNotifier extends StateNotifier<DynamicQrState?> {
   @override
   void dispose() {
     _stopTimer();
+    _qrSnapshotSub?.cancel();
     super.dispose();
   }
 }

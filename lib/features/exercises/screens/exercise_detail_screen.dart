@@ -1,8 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../shared/widgets/fitsync_button.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../workout/providers/workout_provider.dart';
+import '../../workout/screens/active_workout_screen.dart';
 import '../providers/exercise_provider.dart';
 import 'edit_custom_exercise_screen.dart';
 
@@ -70,92 +72,156 @@ class ExerciseDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // GIF Demonstrasi (Cloudflare R2 Media)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    height: 240,
-                    color: AppColors.surfaceElevated,
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        CachedNetworkImage(
-                          imageUrl: exercise.gifUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (ctx, url) => const Center(
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppColors.primary),
-                            ),
-                          ),
-                          errorWidget: (ctx, url, err) => Container(
-                            color: AppColors.surfaceHighlight,
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.fitness_center_rounded,
-                                  color: AppColors.primary,
-                                  size: 48,
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  exercise.name,
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
+                // GIF Demonstrasi (Studio Presentation Canvas)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.border.withValues(alpha: 0.8),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: AspectRatio(
+                      aspectRatio: 1.15,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Image.network(
+                              exercise.gifUrl,
+                              fit: BoxFit.contain,
+                              gaplessPlayback: true,
+                              loadingBuilder: (ctx, child, progress) {
+                                if (progress == null) return child;
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        AppColors.primary),
                                   ),
-                                  textAlign: TextAlign.center,
+                                );
+                              },
+                              errorBuilder: (ctx, err, stack) => Container(
+                                color: AppColors.surfaceHighlight,
+                                padding: const EdgeInsets.all(20),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(
+                                      Icons.fitness_center_rounded,
+                                      color: AppColors.primary,
+                                      size: 48,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      exercise.name,
+                                      style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Media Demonstrasi Cloud CDN',
+                                      style: TextStyle(
+                                        color: AppColors.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Media Demonstrasi Cloudflare R2',
-                                  style: TextStyle(
-                                    color: AppColors.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // Badge R2 Stream
-                        Positioned(
-                          bottom: 12,
-                          right: 12,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color:
-                                  AppColors.background.withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppColors.border,
-                                width: 1,
                               ),
                             ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.cloud_done_rounded,
-                                    color: AppColors.primary, size: 14),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Cloudflare R2',
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          ),
+                          // Top-left: Form Guide Badge
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 4.5),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceElevated.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(alpha: 0.4),
+                                  width: 1,
                                 ),
-                              ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.primary,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'TEKNIK GERAKAN',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          // Bottom-right: CDN Badge
+                          Positioned(
+                            bottom: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 9, vertical: 4),
+                              decoration: BoxDecoration(
+                                color:
+                                    AppColors.surfaceElevated.withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppColors.border,
+                                  width: 1,
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.loop_rounded,
+                                      color: AppColors.primary, size: 13),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'HD Loop',
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -323,19 +389,27 @@ class ExerciseDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                 ],
 
-                // Tombol Aksi: Tambah ke Workout / Mulai Latihan
+                // Tombol Aksi: Mulai Sesi Latihan Aktif
                 Row(
                   children: [
                     Expanded(
                       child: FitSyncButton(
-                        text: 'Mulai Latihan',
+                        text: 'Mulai Latihan Sekarang',
+                        icon: const Icon(Icons.play_arrow_rounded,
+                            color: AppColors.textOnPrimary),
                         onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                  'Memulai sesi latihan: ${exercise.name} (Active Workout akan aktif di Tahap 4).'),
-                              backgroundColor: AppColors.primaryContainer,
-                              behavior: SnackBarBehavior.floating,
+                          final profile =
+                              ref.read(currentUserProfileProvider).value;
+                          ref
+                              .read(activeWorkoutControllerProvider.notifier)
+                              .startSingleExerciseSession(
+                                userId: profile?.uid,
+                                exercise: exercise,
+                              );
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const ActiveWorkoutScreen(),
                             ),
                           );
                         },

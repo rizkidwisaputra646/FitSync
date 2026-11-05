@@ -8,11 +8,32 @@ class AppTheme {
   static ThemeData get darkTheme {
     final baseTextTheme = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
 
+    final ButtonStyle noSplashStyle = ButtonStyle(
+      overlayColor: WidgetStateProperty.all(Colors.transparent),
+      splashFactory: NoSplash.splashFactory,
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: AppColors.background,
       primaryColor: AppColors.primary,
+      splashColor: Colors.transparent,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      textSelectionTheme: TextSelectionThemeData(
+        selectionColor: AppColors.primary.withValues(alpha: 0.3),
+        selectionHandleColor: AppColors.primary,
+        cursorColor: AppColors.primary,
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: noSplashStyle,
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: noSplashStyle,
+      ),
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
         onPrimary: AppColors.textOnPrimary,
@@ -147,7 +168,7 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.textOnPrimary,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(64, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -163,12 +184,12 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
           side: const BorderSide(color: AppColors.border, width: 1.2),
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(64, 44),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
           textStyle: GoogleFonts.inter(
-            fontSize: 15,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
         ),

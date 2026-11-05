@@ -67,6 +67,12 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       // Cek apakah profil sudah ada, jika belum buat profil empty
       final profile = await _userRepo.getUserProfile(session.uid);
       if (profile == null) {
+        final lowerEmail = email.toLowerCase();
+        final isStaffOrAdmin = lowerEmail.contains('admin') ||
+            lowerEmail.contains('petugas') ||
+            lowerEmail.contains('staff');
+        final isDemoMember = lowerEmail == 'member@fitsync.com';
+
         await _userRepo.saveUserProfile(
           UserProfile.empty(
             uid: session.uid,
@@ -74,7 +80,19 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
             displayName: session.displayName.isNotEmpty
                 ? session.displayName
                 : email.split('@').first,
+          ).copyWith(
+            profileCompleted: isStaffOrAdmin || isDemoMember,
+            currentWeightKg: isDemoMember ? 72.5 : 0.0,
+            targetWeightKg: isDemoMember ? 70.0 : null,
+            heightCm: isDemoMember ? 175.0 : 0.0,
+            dailyCalorieTarget: isDemoMember ? 2400.0 : 0.0,
+            tdeeEstimate: isDemoMember ? 2450.0 : 0.0,
+            bmrEstimate: isDemoMember ? 1720.0 : 0.0,
           ),
+        );
+      } else if (profile.isStaffOrAdmin && !profile.profileCompleted) {
+        await _userRepo.saveUserProfile(
+          profile.copyWith(profileCompleted: true),
         );
       }
     });

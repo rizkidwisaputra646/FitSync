@@ -43,3 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Cloudflare R2 Raw Media (Hosted on R2 CDN)
+/r2_assets/
+
+# Environment Secrets
+.env
+catatan.txt
+
+# Agent Tooling
+.agents/
+skills-lock.json

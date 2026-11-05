@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/haptics_helper.dart';
+import '../../auth/providers/auth_provider.dart';
 import '../models/admin_role.dart';
 import '../providers/admin_provider.dart';
-import 'tabs/admin_checkin_tab.dart';
 import 'tabs/admin_dashboard_tab.dart';
 import 'tabs/admin_exercises_tab.dart';
 import 'tabs/admin_members_tab.dart';
@@ -20,102 +21,171 @@ class AdminMainScreen extends ConsumerStatefulWidget {
 
 class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
   int _currentTabIndex = 0;
+  int _catalogSegment = 0; // 0 = Paket, 1 = Latihan
 
   final List<String> _tabTitles = [
     'Dashboard Ringkasan',
     'Manajemen Member',
     'Verifikasi Pembayaran',
-    'Check-In & Turnstile',
-    'Paket Membership',
-    'Manajemen Latihan',
+    'Katalog Paket & Latihan',
     'Pengaturan & Hak Akses',
   ];
 
-  Widget _buildRoleRestrictedView(String moduleName) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceHighlight,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.lock_outline_rounded,
-                color: AppColors.error,
-                size: 40,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Akses Terbatas: Administrator Only',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Modul $moduleName hanya dapat diakses oleh peran Administrator. Peran Anda saat ini adalah Petugas Gym.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: 12.5,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.surfaceHighlight,
-                foregroundColor: AppColors.primary,
-              ),
-              onPressed: () => setState(() => _currentTabIndex = 6),
-              child: const Text('Buka Pengaturan Role'),
-            ),
-          ],
+  @override
+  void initState() {
+    super.initState();
+    // Default peran aktif untuk screen ini adalah Administrator
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(currentAdminRoleProvider.notifier).state = UserRole.admin;
+    });
+  }
+
+  void _handleDashboardNavigation(int target) {
+    HapticsHelper.selection();
+    if (target == 1) {
+      setState(() => _currentTabIndex = 1);
+    } else if (target == 2) {
+      setState(() => _currentTabIndex = 2);
+    }
+  }
+
+  void _confirmSignOut(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceElevated,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Keluar dari Admin Portal',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.w800,
+            fontSize: 16,
+          ),
         ),
+        content: const Text(
+          'Apakah Anda yakin ingin mengakhiri sesi administrator?',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal',
+                style: TextStyle(color: AppColors.textMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authControllerProvider.notifier).signOut();
+            },
+            child: const Text('Keluar'),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildCatalogTab() {
+    return Column(
+      children: [
+        // Clean Segmented Header
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    HapticsHelper.selectionClick();
+                    setState(() => _catalogSegment = 0);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _catalogSegment == 0
+                          ? AppColors.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Paket Membership',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _catalogSegment == 0
+                            ? AppColors.textOnPrimary
+                            : AppColors.textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    HapticsHelper.selectionClick();
+                    setState(() => _catalogSegment = 1);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _catalogSegment == 1
+                          ? AppColors.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Dataset Gerakan',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _catalogSegment == 1
+                            ? AppColors.textOnPrimary
+                            : AppColors.textSecondary,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _catalogSegment == 0
+              ? const AdminPlansTab()
+              : const AdminExercisesTab(),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final role = ref.watch(currentAdminRoleProvider);
-
     Widget buildCurrentTab() {
       switch (_currentTabIndex) {
         case 0:
           return AdminDashboardTab(
-            onNavigateTab: (target) => setState(() => _currentTabIndex = target),
+            onNavigateTab: _handleDashboardNavigation,
           );
         case 1:
-          if (!role.canManageMembers) {
-            return _buildRoleRestrictedView('Manajemen Member');
-          }
           return const AdminMembersTab();
         case 2:
-          if (!role.canVerifyPayments) {
-            return _buildRoleRestrictedView('Verifikasi Pembayaran');
-          }
           return const AdminPaymentsTab();
         case 3:
-          return const AdminCheckinTab();
+          return _buildCatalogTab();
         case 4:
-          if (!role.canManagePlans) {
-            return _buildRoleRestrictedView('Paket Membership');
-          }
-          return const AdminPlansTab();
-        case 5:
-          if (!role.canManageExercises) {
-            return _buildRoleRestrictedView('Manajemen Latihan');
-          }
-          return const AdminExercisesTab();
-        case 6:
           return const AdminSettingsTab();
         default:
           return const SizedBox.shrink();
@@ -152,17 +222,13 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: role == UserRole.admin
-                        ? AppColors.primaryContainer
-                        : const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                    color: AppColors.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Text(
-                    role == UserRole.admin ? 'ADMIN' : 'PETUGAS',
+                  child: const Text(
+                    'ADMIN',
                     style: TextStyle(
-                      color: role == UserRole.admin
-                          ? AppColors.primary
-                          : const Color(0xFF38BDF8),
+                      color: AppColors.primary,
                       fontSize: 9,
                       fontWeight: FontWeight.w800,
                     ),
@@ -174,7 +240,7 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
               _tabTitles[_currentTabIndex],
               style: const TextStyle(
                 color: AppColors.textPrimary,
-                fontSize: 14,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -182,9 +248,10 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.exit_to_app_rounded, color: AppColors.error, size: 22),
-            tooltip: 'Kembali ke Aplikasi Member',
-            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.logout_rounded,
+                color: AppColors.error, size: 20),
+            tooltip: 'Keluar Admin',
+            onPressed: () => _confirmSignOut(context),
           ),
         ],
       ),
@@ -204,15 +271,18 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
             height: 60,
             child: BottomNavigationBar(
               currentIndex: _currentTabIndex,
-              onTap: (index) => setState(() => _currentTabIndex = index),
+              onTap: (index) {
+                HapticsHelper.selectionClick();
+                setState(() => _currentTabIndex = index);
+              },
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.transparent,
               elevation: 0,
               selectedItemColor: AppColors.primary,
               unselectedItemColor: AppColors.textMuted,
-              selectedFontSize: 10,
-              unselectedFontSize: 9.5,
-              iconSize: 20,
+              selectedFontSize: 11,
+              unselectedFontSize: 10,
+              iconSize: 21,
               selectedLabelStyle: const TextStyle(
                 fontWeight: FontWeight.w800,
                 height: 1.15,
@@ -238,24 +308,14 @@ class _AdminMainScreenState extends ConsumerState<AdminMainScreen> {
                   label: 'Bayar',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.qr_code_scanner_outlined),
-                  activeIcon: Icon(Icons.qr_code_scanner_rounded),
-                  label: 'Turnstile',
+                  icon: Icon(Icons.category_outlined),
+                  activeIcon: Icon(Icons.category_rounded),
+                  label: 'Katalog',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.card_membership_outlined),
-                  activeIcon: Icon(Icons.card_membership_rounded),
-                  label: 'Paket',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.fitness_center_outlined),
-                  activeIcon: Icon(Icons.fitness_center_rounded),
-                  label: 'Latihan',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.settings_outlined),
-                  activeIcon: Icon(Icons.settings_rounded),
-                  label: 'Akses',
+                  icon: Icon(Icons.tune_outlined),
+                  activeIcon: Icon(Icons.tune_rounded),
+                  label: 'Sistem',
                 ),
               ],
             ),

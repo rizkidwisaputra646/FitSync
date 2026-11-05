@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../app/theme/app_colors.dart';
+import '../../../core/utils/haptics_helper.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../exercises/providers/exercise_provider.dart';
 import '../../exercises/screens/exercise_detail_screen.dart';
 import '../providers/workout_provider.dart';
 import '../widgets/exercise_picker_modal.dart';
@@ -74,11 +77,11 @@ class ActiveWorkoutScreen extends ConsumerWidget {
               const SizedBox(width: 8),
               Text(
                 state.formattedElapsedTime,
-                style: const TextStyle(
+                style: GoogleFonts.inter(
                   color: AppColors.primary,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],
@@ -218,6 +221,8 @@ class ActiveWorkoutScreen extends ConsumerWidget {
                                 );
                               },
                               style: OutlinedButton.styleFrom(
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 8),
                                 side: const BorderSide(
@@ -242,7 +247,12 @@ class ActiveWorkoutScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 14),
+
+                        // GIF Panduan Form / Teknik Gerakan Aktif
+                        _ActiveExerciseGifPreview(
+                          exerciseId: currentEx.exerciseId,
+                        ),
 
                         // Table Header
                         const Padding(
@@ -311,6 +321,7 @@ class ActiveWorkoutScreen extends ConsumerWidget {
                                 '${currentEx.exerciseId}_set_${set.setNumber}'),
                             set: set,
                             onToggleComplete: () {
+                              HapticsHelper.success();
                               notifier.toggleSetCompleted(
                                 state.currentExerciseIndex,
                                 setIdx,
@@ -593,6 +604,114 @@ class ActiveWorkoutScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ActiveExerciseGifPreview extends ConsumerWidget {
+  final String exerciseId;
+
+  const _ActiveExerciseGifPreview({required this.exerciseId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detailAsync = ref.watch(exerciseDetailProvider(exerciseId));
+
+    return detailAsync.maybeWhen(
+      data: (exercise) {
+        if (exercise == null || exercise.gifUrl.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 18),
+          height: 190,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.border.withValues(alpha: 0.8),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Image.network(
+                    exercise.gifUrl,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Container(
+                      color: AppColors.surfaceHighlight,
+                      child: const Center(
+                        child: Icon(
+                          Icons.fitness_center_rounded,
+                          color: AppColors.textMuted,
+                          size: 32,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceElevated.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: AppColors.border,
+                        width: 0.8,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.slow_motion_video_rounded,
+                            size: 13, color: AppColors.primary),
+                        SizedBox(width: 5),
+                        Text(
+                          'Teknik Gerakan',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
     );
   }
 }

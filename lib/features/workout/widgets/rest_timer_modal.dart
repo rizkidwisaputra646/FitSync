@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../app/theme/app_colors.dart';
 
 class RestTimerBar extends StatelessWidget {
@@ -69,11 +70,11 @@ class RestTimerBar extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 _formattedTime,
-                style: const TextStyle(
+                style: GoogleFonts.inter(
                   color: AppColors.primary,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  fontFamily: 'monospace',
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],

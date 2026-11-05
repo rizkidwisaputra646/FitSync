@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,7 @@ import '../../../models/workout_program.dart';
 import '../../../models/workout_session.dart';
 import '../../../shared/widgets/fitsync_card.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../exercises/providers/exercise_provider.dart';
 import '../../exercises/screens/exercise_detail_screen.dart';
 import '../providers/workout_provider.dart';
 import '../widgets/exercise_picker_modal.dart';
@@ -527,23 +529,9 @@ class _WorkoutProgramScreenState extends ConsumerState<WorkoutProgramScreen> {
                               ),
                               child: Row(
                                 children: [
-                                  Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.surfaceHighlight,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '$idx',
-                                        style: const TextStyle(
-                                          color: AppColors.primary,
-                                          fontWeight: FontWeight.w800,
-                                          fontSize: 11,
-                                        ),
-                                      ),
-                                    ),
+                                  _ProgramExerciseThumbnail(
+                                    exerciseId: ex.exerciseId,
+                                    index: idx,
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -726,7 +714,35 @@ class _WorkoutProgramScreenState extends ConsumerState<WorkoutProgramScreen> {
                       child: CircularProgressIndicator(),
                     ),
                   ),
-                  error: (e, _) => Text('Gagal memuat riwayat: $e'),
+                  error: (_, __) => FitSyncCard(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        const Icon(
+                          Icons.fitness_center_rounded,
+                          size: 36,
+                          color: AppColors.textMuted,
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Belum Ada Sesi Latihan Selesai',
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Mulai Hari 1 dari program Anda di atas untuk merekam repetisi dan beban aktual.',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   data: (history) {
                     if (history.isEmpty) {
                       return FitSyncCard(
@@ -885,6 +901,114 @@ class _WorkoutProgramScreenState extends ConsumerState<WorkoutProgramScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ProgramExerciseThumbnail extends ConsumerWidget {
+  final String exerciseId;
+  final int index;
+
+  const _ProgramExerciseThumbnail({
+    required this.exerciseId,
+    required this.index,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detailAsync = ref.watch(exerciseDetailProvider(exerciseId));
+
+    return detailAsync.maybeWhen(
+      data: (exercise) {
+        final imgUrl = exercise?.thumbnailUrl ?? exercise?.gifUrl;
+        if (imgUrl == null || imgUrl.isEmpty) {
+          return Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.surfaceHighlight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                '$index',
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 40,
+            height: 40,
+            color: Colors.white,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(2.0),
+                  child: CachedNetworkImage(
+                    imageUrl: imgUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => Container(
+                      color: AppColors.surfaceHighlight,
+                    ),
+                    errorWidget: (_, __, ___) => Container(
+                      color: AppColors.surfaceHighlight,
+                      child: const Icon(Icons.fitness_center_rounded,
+                          size: 16, color: AppColors.textMuted),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.background.withValues(alpha: 0.85),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '$index',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      orElse: () => Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceHighlight,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            '$index',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

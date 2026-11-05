@@ -5,7 +5,6 @@ import '../../../services/firebase_service.dart';
 import '../../../shared/widgets/fitsync_button.dart';
 import '../../../shared/widgets/fitsync_text_field.dart';
 import '../providers/auth_provider.dart';
-import '../../admin/screens/admin_main_screen.dart';
 import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
@@ -58,9 +57,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: Navigator.canPop(context)
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                    color: AppColors.textPrimary, size: 20),
+                onPressed: () => Navigator.pop(context),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
             child: Form(
               key: _formKey,
@@ -162,6 +173,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     label: 'Alamat Email',
                     hint: 'nama@domain.com',
                     keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
                     prefixIcon: const Icon(
                       Icons.mail_outline_rounded,
                       color: AppColors.textSecondary,
@@ -184,6 +196,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     label: 'Kata Sandi',
                     hint: 'Minimal 6 karakter',
                     obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
                     prefixIcon: const Icon(
                       Icons.lock_outline_rounded,
                       color: AppColors.textSecondary,
@@ -276,40 +290,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Divider
-                  const Divider(),
-                  const SizedBox(height: 16),
-
-                  // Quick Admin & Staff Portal Button
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary, width: 1.2),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    icon: const Icon(Icons.admin_panel_settings_rounded,
-                        color: AppColors.primary, size: 20),
-                    label: const Text(
-                      'Masuk ke Portal Admin & Staff (Testing)',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const AdminMainScreen(),
-                        ),
-                      );
-                    },
                   ),
                 ],
               ),

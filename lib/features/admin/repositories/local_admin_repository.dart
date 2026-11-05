@@ -419,6 +419,16 @@ class LocalAdminRepository implements AdminRepository {
 
     final userId = validation.userId!;
     final memberCode = validation.memberCode!;
+    final tokenId = validation.tokenId ?? 'legacy_${validation.epochSeconds}';
+
+    // Cek apakah token sudah pernah digunakan (Pencegahan penggunaan ulang / replay attack)
+    final usedTokens = _prefs.getStringList('used_qr_tokens') ?? [];
+    if (usedTokens.contains(tokenId)) {
+      return const QrValidationResult(
+        isValid: false,
+        message: 'Akses Ditolak: Kode QR ini SUDAH DIGUNAKAN untuk check-in!',
+      );
+    }
 
     // Cek apakah membership aktif
     final rawMembership = _prefs.getString('user_membership_$userId');
@@ -466,6 +476,10 @@ class LocalAdminRepository implements AdminRepository {
     final updated = [newCheckin, ...checkins];
     await _prefs.setString(
         _checkinsKey, jsonEncode(updated.map((c) => c.toJson()).toList()));
+
+    // Tandai token sebagai terpakai
+    usedTokens.add(tokenId);
+    await _prefs.setStringList('used_qr_tokens', usedTokens);
 
     _logActivity(
       title: 'Scan QR Check-In',

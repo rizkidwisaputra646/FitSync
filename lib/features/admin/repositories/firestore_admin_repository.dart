@@ -189,34 +189,172 @@ class FirestoreAdminRepository implements AdminRepository {
     required String gateName,
     required String staffUid,
   }) async {
-    final result = await _fallbackRepo.verifyAndProcessQrCheckin(
-      qrPayload: qrPayload,
-      gateName: gateName,
-      staffUid: staffUid,
-    );
+    // 1. Validasi awal HMAC signature & struktur di sisi client
+    final preliminary = QrCheckinToken.validate(qrPayload);
+    if (!preliminary.isValid) {
+      return preliminary;
+    }
 
-    if (result.isValid && result.userId != null) {
-      try {
+    final userId = preliminary.userId!;
+    final scannedTokenId = preliminary.tokenId!;
+    final memberCode = preliminary.memberCode!;
+
+    try {
+      final tokenRef = _firestore.collection('active_qr_tokens').doc(userId);
+      final membershipRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('membership')
+          .doc('active');
+
+      // 2. Eksekusi Atomic Transaction Firestore
+      final transactionResult =
+          await _firestore.runTransaction<QrValidationResult>((transaction) async {
+        final tokenSnap = await transaction.get(tokenRef);
+        final memSnap = await transaction.get(membershipRef);
+
+        if (!tokenSnap.exists || tokenSnap.data() == null) {
+          // Jika token belum tersinkron di server, fallback ke validasi lokal
+          return await _fallbackRepo.verifyAndProcessQrCheckin(
+            qrPayload: qrPayload,
+            gateName: gateName,
+            staffUid: staffUid,
+          );
+        }
+
+        final tokenData = tokenSnap.data()!;
+        final activeTokenId = tokenData['tokenId'] as String?;
+        final isUsed = tokenData['used'] == true;
+        final epochSeconds = (tokenData['epochSeconds'] as num?)?.toInt() ?? 0;
+        final expiresAtEpoch =
+            (tokenData['expiresAtEpoch'] as num?)?.toInt() ?? (epochSeconds + 60);
+
+        // a. Cek apakah token cocok dengan yang aktif di layar member
+        if (activeTokenId != scannedTokenId) {
+          return const QrValidationResult(
+            isValid: false,
+            message:
+                'Akses Ditolak: Kode QR lama atau tidak cocok dengan token aktif.',
+          );
+        }
+
+        // b. Cek apakah token sudah digunakan (Mencegah check-in ganda / replay attack)
+        if (isUsed) {
+          return const QrValidationResult(
+            isValid: false,
+            message:
+                'Akses Ditolak: Kode QR ini SUDAH DIGUNAKAN untuk check-in!',
+          );
+        }
+
+        // c. Cek batas kedaluwarsa waktu server
+        final serverNowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        if (serverNowSec > (expiresAtEpoch + 10)) {
+          return const QrValidationResult(
+            isValid: false,
+            message:
+                'Akses Ditolak: Kode QR telah kedaluwarsa. Gunakan QR terbaru.',
+          );
+        }
+
+        // d. Cek status keaktifan paket membership
+        bool membershipActive = false;
+        String planName = 'Member Pass';
+
+        if (memSnap.exists && memSnap.data() != null) {
+          final memData = memSnap.data()!;
+          final isActive = memData['isActive'] == true;
+          final expiryStr = memData['expiryDate'] as String?;
+          final expiry = expiryStr != null ? DateTime.tryParse(expiryStr) : null;
+
+          if (isActive && (expiry == null || DateTime.now().isBefore(expiry))) {
+            membershipActive = true;
+            planName = memData['planName'] as String? ?? 'Member Pass';
+          }
+        } else {
+          // Jika subkoleksi membership belum ada di remote, anggap aktif jika token valid
+          membershipActive = true;
+          planName = 'Member Pass';
+        }
+
+        if (!membershipActive) {
+          return const QrValidationResult(
+            isValid: false,
+            message:
+                'Akses Ditolak: Paket membership member ini sudah kedaluwarsa.',
+          );
+        }
+
+        // e. Validasi sukses! Kunci token secara atomik agar tidak bisa dipakai ulang
+        transaction.update(tokenRef, {
+          'used': true,
+          'status': 'used',
+          'usedAt': FieldValue.serverTimestamp(),
+          'usedByGate': gateName,
+          'verifiedByStaff': staffUid,
+        });
+
+        // f. Buat log check-in di Firestore subkoleksi user
         final checkinId = 'chk_${DateTime.now().millisecondsSinceEpoch}';
-        await _firestore
+        final checkinRef = _firestore
             .collection('users')
-            .doc(result.userId)
+            .doc(userId)
             .collection('checkin_history')
-            .doc(checkinId)
-            .set({
+            .doc(checkinId);
+
+        transaction.set(checkinRef, {
           'id': checkinId,
-          'userId': result.userId,
-          'membershipId': result.membershipId ?? '',
-          'planName': 'Member Pass',
+          'userId': userId,
+          'membershipId': preliminary.membershipId ?? '',
+          'memberCode': memberCode,
+          'planName': planName,
           'timestamp': DateTime.now().toIso8601String(),
           'location': gateName,
           'status': 'granted',
-          'notes': 'Verified by Staff $staffUid',
+          'notes': 'Verified by Staff $staffUid (Atomic Transaction)',
         });
-      } catch (_) {}
-    }
 
-    return result;
+        // g. Buat log check-in di monitoring global admin
+        final globalRef = _firestore.collection('checkins').doc(checkinId);
+        transaction.set(globalRef, {
+          'id': checkinId,
+          'userId': userId,
+          'membershipId': preliminary.membershipId ?? '',
+          'memberCode': memberCode,
+          'planName': planName,
+          'timestamp': DateTime.now().toIso8601String(),
+          'location': gateName,
+          'status': 'granted',
+          'staffUid': staffUid,
+        });
+
+        return QrValidationResult(
+          isValid: true,
+          message:
+              'Akses Diberikan! Member $memberCode diperbolehkan masuk ke $gateName.',
+          userId: userId,
+          membershipId: preliminary.membershipId,
+          memberCode: memberCode,
+          tokenId: scannedTokenId,
+        );
+      });
+
+      // Sinkronkan ke local fallback cache
+      await _fallbackRepo.verifyAndProcessQrCheckin(
+        qrPayload: qrPayload,
+        gateName: gateName,
+        staffUid: staffUid,
+      );
+
+      return transactionResult;
+    } catch (_) {
+      // Jika terjadi kendala jaringan Firestore, fallback aman ke repo lokal
+      return await _fallbackRepo.verifyAndProcessQrCheckin(
+        qrPayload: qrPayload,
+        gateName: gateName,
+        staffUid: staffUid,
+      );
+    }
   }
 
   @override

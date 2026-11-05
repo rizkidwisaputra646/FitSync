@@ -51,14 +51,32 @@ class FirestoreWorkoutRepository implements WorkoutRepository {
   @override
   Stream<List<WorkoutSession>> watchWorkoutHistory(String userId) {
     try {
-      return _sessionsCol(userId)
+      final controller = StreamController<List<WorkoutSession>>.broadcast();
+
+      final sub = _sessionsCol(userId)
           .orderBy('startTime', descending: true)
           .snapshots()
-          .map((snap) {
-        return snap.docs
-            .map((doc) => WorkoutSession.fromMap(doc.data()))
-            .toList();
-      });
+          .listen(
+        (snap) {
+          final list = snap.docs
+              .map((doc) => WorkoutSession.fromMap(doc.data()))
+              .toList();
+          controller.add(list);
+        },
+        onError: (err) async {
+          // Fallback lokal otomatis jika security rules belum terpasang atau offline
+          try {
+            final localHistory =
+                await _fallbackLocalRepo.getWorkoutHistory(userId);
+            controller.add(localHistory);
+          } catch (_) {
+            controller.add([]);
+          }
+        },
+      );
+
+      controller.onCancel = () => sub.cancel();
+      return controller.stream;
     } catch (_) {
       return _fallbackLocalRepo.watchWorkoutHistory(userId);
     }

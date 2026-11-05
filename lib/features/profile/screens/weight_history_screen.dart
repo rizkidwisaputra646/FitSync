@@ -30,6 +30,8 @@ class _WeightHistoryScreenState extends ConsumerState<WeightHistoryScreen> {
   }
 
   void _openAddWeightModal(BuildContext context, double currentWeight) {
+    FocusManager.instance.primaryFocus?.unfocus();
+
     final weightController =
         TextEditingController(text: currentWeight.toStringAsFixed(1));
     final noteController = TextEditingController();

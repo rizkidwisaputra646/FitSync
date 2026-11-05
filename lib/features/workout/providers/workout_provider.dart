@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../models/exercise.dart';
 import '../../../models/user_profile.dart';
 import '../../../models/workout_program.dart';
 import '../../../models/workout_session.dart';
@@ -162,6 +164,68 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
       programTitle: program.title,
       dayNumber: day.dayNumber,
       dayTitle: day.title,
+      startTime: DateTime.now(),
+      durationSeconds: 0,
+      totalVolumeKg: 0.0,
+      totalSetsCompleted: 0,
+      caloriesBurned: 0,
+      exercises: exercises,
+    );
+
+    state = ActiveWorkoutState(
+      session: initialSession,
+      currentExerciseIndex: 0,
+      elapsedSeconds: 0,
+      restSecondsRemaining: 0,
+      isResting: false,
+    );
+
+    _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      state = state.copyWith(elapsedSeconds: state.elapsedSeconds + 1);
+    });
+  }
+
+  void startSingleExerciseSession({
+    String? userId,
+    required Exercise exercise,
+  }) {
+    _sessionTimer?.cancel();
+    _restTimer?.cancel();
+
+    final targetRepsNum = int.tryParse(exercise.recommendedReps
+            .split('-')
+            .first
+            .replaceAll(RegExp(r'[^0-9]'), '')) ??
+        10;
+    final totalSets =
+        exercise.recommendedSets > 0 ? exercise.recommendedSets : 3;
+    final loggedSets = List.generate(
+      totalSets,
+      (i) => LoggedSet(
+        setNumber: i + 1,
+        targetReps: targetRepsNum,
+        actualReps: targetRepsNum,
+        actualWeightKg: 0.0,
+        isCompleted: false,
+      ),
+    );
+
+    final exercises = [
+      SessionExerciseRecord(
+        exerciseId: exercise.id,
+        exerciseName: exercise.name,
+        targetMuscle: exercise.targetMuscle,
+        sets: loggedSets,
+      ),
+    ];
+
+    final initialSession = WorkoutSession(
+      sessionId: 'ws_${DateTime.now().millisecondsSinceEpoch}',
+      userId: userId ?? 'guest_user',
+      programId: 'quick_session',
+      programTitle: 'Latihan Mandiri',
+      dayNumber: 1,
+      dayTitle: exercise.name,
       startTime: DateTime.now(),
       durationSeconds: 0,
       totalVolumeKg: 0.0,
@@ -417,6 +481,7 @@ class ActiveWorkoutNotifier extends StateNotifier<ActiveWorkoutState> {
     _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (state.restSecondsRemaining <= 1) {
         timer.cancel();
+        HapticFeedback.heavyImpact();
         state = state.copyWith(
           restSecondsRemaining: 0,
           isResting: false,

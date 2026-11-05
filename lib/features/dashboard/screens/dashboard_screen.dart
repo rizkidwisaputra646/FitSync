@@ -4,7 +4,6 @@ import '../../../app/theme/app_colors.dart';
 import '../../../models/user_profile.dart';
 import '../../../shared/widgets/fitsync_card.dart';
 import '../../auth/providers/auth_provider.dart';
-import '../../admin/screens/admin_main_screen.dart';
 import '../../exercises/screens/exercise_detail_screen.dart';
 import '../../exercises/screens/exercise_library_screen.dart';
 import '../../membership/providers/membership_provider.dart';
@@ -13,6 +12,9 @@ import '../../profile/screens/edit_profile_screen.dart';
 import '../../profile/screens/weight_history_screen.dart';
 import '../../workout/providers/workout_provider.dart';
 import '../../workout/screens/workout_program_screen.dart';
+import '../../../core/utils/haptics_helper.dart';
+import '../../../core/widgets/bottom_padding.dart';
+import '../../../core/widgets/version_indicator.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -23,6 +25,13 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   int _currentIndex = 0;
+  final ScrollController _homeScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _homeScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +83,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             height: 60,
             child: BottomNavigationBar(
               currentIndex: _currentIndex,
-              onTap: (index) => setState(() => _currentIndex = index),
+              onTap: (index) {
+                HapticsHelper.selection();
+                if (index == _currentIndex) {
+                  if (index == 0 && _homeScrollController.hasClients) {
+                    _homeScrollController.animateTo(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOutCubic,
+                    );
+                  }
+                  return;
+                }
+                setState(() => _currentIndex = index);
+              },
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -131,6 +153,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
+      controller: _homeScrollController,
       padding:
           const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 32),
       child: Column(
@@ -167,6 +190,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
               const SizedBox(width: 14),
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () => setState(() => _currentIndex = 4),
                 child: Container(
                   width: 48,
@@ -682,6 +706,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               );
             },
           ),
+          const BottomPadding(minimum: 24),
         ],
       ),
     );
@@ -713,29 +738,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildRecommendationList(UserProfile profile) {
     // Rekomendasi rule-based cerdas berdasarkan level & alat pengguna
+    final eq = profile.availableEquipment;
     final items = [
-      if (profile.availableEquipment.contains('Barbell'))
+      if (eq.contains('Barbell'))
         {
           'id': 'barbell-bench-press',
           'name': 'Barbell Bench Press',
           'target': 'Chest',
           'reps': '3 Set x 8-10 Reps'
         },
-      if (profile.availableEquipment.contains('Lat Pulldown Machine'))
+      if (eq.contains('Lat Pulldown Machine'))
         {
           'id': 'lat-pulldown',
           'name': 'Lat Pulldown',
           'target': 'Back',
           'reps': '3 Set x 10-12 Reps'
         },
-      if (profile.availableEquipment.contains('Dumbbell'))
+      if (eq.contains('Dumbbell'))
         {
           'id': 'dumbbell-lateral-raise',
           'name': 'Dumbbell Lateral Raise',
           'target': 'Shoulder',
           'reps': '3 Set x 10-12 Reps'
         },
-      if (profile.availableEquipment.contains('Leg Press Machine'))
+      if (eq.contains('Leg Press Machine'))
         {
           'id': 'leg-press-45',
           'name': 'Leg Press 45°',
@@ -1031,72 +1057,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
-
-          // Admin & Staff Dashboard Shortcut
-          FitSyncCard(
-            padding: const EdgeInsets.all(16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AdminMainScreen(),
-                ),
-              );
-            },
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.admin_panel_settings_rounded,
-                    color: AppColors.primary,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 14),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Portal Admin & Petugas Gym',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(Icons.verified_user_rounded,
-                              size: 14, color: AppColors.primary),
-                        ],
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Verifikasi pembayaran, scan QR turnstile, member, paket & latihan',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  color: AppColors.textMuted,
-                  size: 14,
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 28),
 
           // Logout Button
@@ -1136,7 +1096,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               }
             },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          const VersionIndicator(),
+          const SizedBox(height: 12),
+          const BottomPadding(minimum: 24),
         ],
       ),
     );

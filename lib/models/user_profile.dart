@@ -21,6 +21,7 @@ class UserProfile {
   final double tdeeEstimate;
   final double dailyCalorieTarget;
   final bool profileCompleted;
+  final String role; // 'admin', 'staff', 'member'
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -44,9 +45,19 @@ class UserProfile {
     this.tdeeEstimate = 0.0,
     this.dailyCalorieTarget = 0.0,
     this.profileCompleted = false,
+    this.role = 'member',
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Role helpers
+  bool get isAdmin => role == 'admin' || email.toLowerCase().contains('admin');
+  bool get isStaff =>
+      role == 'staff' ||
+      role == 'petugas' ||
+      email.toLowerCase().contains('petugas') ||
+      email.toLowerCase().contains('staff');
+  bool get isStaffOrAdmin => isAdmin || isStaff;
 
   /// Calculates user age in years from dateOfBirth or fallback.
   int get calculatedAge {
@@ -65,24 +76,46 @@ class UserProfile {
     required String uid,
     required String email,
     required String displayName,
+    String? role,
   }) {
     final now = DateTime.now();
+    final lowerEmail = email.toLowerCase();
+    final effectiveRole = role ??
+        (lowerEmail.contains('admin')
+            ? 'admin'
+            : (lowerEmail.contains('petugas') || lowerEmail.contains('staff')
+                ? 'staff'
+                : 'member'));
+    final isStaffOrAdmin =
+        effectiveRole == 'admin' || effectiveRole == 'staff';
+
     return UserProfile(
       uid: uid,
       email: email,
       displayName: displayName,
-      profileCompleted: false,
+      role: effectiveRole,
+      profileCompleted: isStaffOrAdmin,
       createdAt: now,
       updatedAt: now,
     );
   }
 
   factory UserProfile.fromMap(Map<String, dynamic> map, String uid) {
+    final email = map['email'] as String? ?? '';
+    final lowerEmail = email.toLowerCase();
+    final parsedRole = map['role'] as String? ??
+        (lowerEmail.contains('admin')
+            ? 'admin'
+            : (lowerEmail.contains('petugas') || lowerEmail.contains('staff')
+                ? 'staff'
+                : 'member'));
+
     return UserProfile(
       uid: uid,
-      email: map['email'] as String? ?? '',
+      email: email,
       displayName: map['displayName'] as String? ?? 'User',
       photoUrl: map['photoUrl'] as String?,
+      role: parsedRole,
       dateOfBirth: map['dateOfBirth'] != null
           ? DateTime.tryParse(map['dateOfBirth'].toString())
           : null,
@@ -126,6 +159,7 @@ class UserProfile {
       'email': email,
       'displayName': displayName,
       'photoUrl': photoUrl,
+      'role': role,
       'dateOfBirth': dateOfBirth?.toIso8601String(),
       'sexForBmr': sexForBmr.code,
       'heightCm': heightCm,
@@ -149,6 +183,7 @@ class UserProfile {
   UserProfile copyWith({
     String? displayName,
     String? photoUrl,
+    String? role,
     DateTime? dateOfBirth,
     BiologicalSex? sexForBmr,
     double? heightCm,
@@ -171,6 +206,7 @@ class UserProfile {
       email: email,
       displayName: displayName ?? this.displayName,
       photoUrl: photoUrl ?? this.photoUrl,
+      role: role ?? this.role,
       dateOfBirth: dateOfBirth ?? this.dateOfBirth,
       sexForBmr: sexForBmr ?? this.sexForBmr,
       heightCm: heightCm ?? this.heightCm,
@@ -189,7 +225,7 @@ class UserProfile {
       dailyCalorieTarget: dailyCalorieTarget ?? this.dailyCalorieTarget,
       profileCompleted: profileCompleted ?? this.profileCompleted,
       createdAt: createdAt,
-      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }

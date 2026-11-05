@@ -215,6 +215,7 @@ class _SetTrackerRowState extends State<SetTrackerRow> {
 
           // Toggle Complete Button
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: widget.onToggleComplete,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),

@@ -10,7 +10,6 @@ import '../providers/membership_provider.dart';
 import '../widgets/dynamic_qr_view.dart';
 import '../widgets/membership_card_view.dart';
 import '../widgets/plan_purchase_modal.dart';
-import '../widgets/turnstile_simulator_modal.dart';
 
 class MembershipScreen extends ConsumerWidget {
   const MembershipScreen({super.key});
@@ -21,15 +20,6 @@ class MembershipScreen extends ConsumerWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => PlanPurchaseModal(selectedPlan: plan),
-    );
-  }
-
-  void _showTurnstileModal(BuildContext context, String qrPayload) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => TurnstileSimulatorModal(qrPayload: qrPayload),
     );
   }
 
@@ -97,22 +87,6 @@ class MembershipScreen extends ConsumerWidget {
                                   .read(dynamicQrProvider.notifier)
                                   .regenerateNow();
                             },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // 3. Turnstile Scanner Simulator Action
-                          FitSyncButton(
-                            text: 'Simulasi Scan Turnstile Pintu Gym',
-                            icon: const Icon(
-                              Icons.camera_alt_outlined,
-                              color: AppColors.primary,
-                              size: 20,
-                            ),
-                            variant: FitSyncButtonVariant.secondary,
-                            onPressed: () => _showTurnstileModal(
-                              context,
-                              qrState.token.rawPayload,
-                            ),
                           ),
                           const SizedBox(height: 24),
                         ],

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../models/qr_checkin_token.dart';
 import '../../../shared/widgets/fitsync_button.dart';
+import '../../admin/providers/admin_provider.dart';
 import '../providers/membership_provider.dart';
 
 class TurnstileSimulatorModal extends ConsumerStatefulWidget {
@@ -23,7 +24,6 @@ class _TurnstileSimulatorModalState
   String _selectedGate = 'Main Gate - Turnstile 01';
   bool _isProcessing = false;
   QrValidationResult? _validationResult;
-  bool _hasCheckedIn = false;
 
   final List<String> _gates = [
     'Main Gate - Turnstile 01',
@@ -38,26 +38,23 @@ class _TurnstileSimulatorModalState
       _validationResult = null;
     });
 
-    // Simulate laser scan delay
-    await Future.delayed(const Duration(milliseconds: 700));
+    // Simulasi pemindaian laser scanner turnstile
+    await Future.delayed(const Duration(milliseconds: 600));
 
-    final result = QrCheckinToken.validate(widget.qrPayload);
+    // Selalu ambil token terbaru yang sedang aktif di layar
+    final activePayload =
+        ref.read(dynamicQrProvider)?.token.rawPayload ?? widget.qrPayload;
+
+    final result = await ref.read(adminActionControllerProvider).processQrScan(
+          qrPayload: activePayload,
+          gateName: _selectedGate,
+        );
 
     if (mounted) {
       setState(() {
         _isProcessing = false;
         _validationResult = result;
       });
-
-      if (result.isValid && !_hasCheckedIn) {
-        _hasCheckedIn = true;
-        await ref
-            .read(membershipActionControllerProvider)
-            .recordTurnstileCheckIn(
-              location: _selectedGate,
-              notes: 'Verifikasi Turnstile Otomatis',
-            );
-      }
     }
   }
 
@@ -269,6 +266,25 @@ class _TurnstileSimulatorModalState
             ),
             isLoading: _isProcessing,
             onPressed: _simulateScan,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.textPrimary,
+              side: const BorderSide(color: AppColors.border, width: 1.2),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Tutup Simulator',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           Center(

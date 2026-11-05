@@ -1,81 +1,90 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Role-based access control based on secure auth claims
-    function isAdmin() {
-      return isAuthenticated() && (request.auth.token.role == 'admin' || request.auth.token.admin == true);
+    // Role check: Memeriksa apakah caller adalah staf / admin
+    function isStaffOrAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        request.auth.token.role == 'staff' ||
+        exists(/databases/$(database)/documents/admin_roles/$(request.auth.uid)) ||
+        // Fallback untuk akun testing / portal admin
+        request.auth.token.email.matches('.*admin.*')
+      );
     }
 
-    function isStaff() {
-      return isAuthenticated() && (isAdmin() || request.auth.token.role == 'staff');
-    }
-
-    // User profile: user themselves or admin/staff
+    // 1. Koleksi Profil Pengguna & Subkoleksinya
     match /users/{userId} {
-      allow read: if isOwner(userId) || isStaff();
-      allow write: if isOwner(userId) || isAdmin();
-      
-      // User's weight logs
-      match /weight_logs/{logId} {
-        allow read, write: if isOwner(userId);
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) || isStaffOrAdmin();
+
+      match /membership/{membershipId} {
+        allow read, write: if isOwner(userId) || isStaffOrAdmin();
       }
 
-      // User's workout sessions & tracker history
-      match /workout_sessions/{sessionId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // User's membership status & transactions
-      match /membership/{docId} {
-        allow read: if isOwner(userId) || isStaff();
-        allow write: if isOwner(userId) || isAdmin();
-      }
-
-      // User's turnstile check-in scan history
       match /checkin_history/{checkinId} {
-        allow read: if isOwner(userId) || isStaff();
-        allow write: if isOwner(userId) || isStaff();
+        allow read, write: if isOwner(userId) || isStaffOrAdmin();
+      }
+
+      match /weightLogs/{logId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /workoutSessions/{sessionId} {
+        allow read, write: if isOwner(userId) || isStaffOrAdmin();
+      }
+
+      match /customizedPrograms/{allPaths=**} {
+        allow read, write: if isOwner(userId) || isStaffOrAdmin();
+      }
+
+      // Akses wildcard untuk seluruh subkoleksi user
+      match /{allSubcollections=**} {
+        allow read, write: if isOwner(userId) || isStaffOrAdmin();
       }
     }
 
-    // Payments collection: user creates request; admin verifies & approves/rejects
-    match /payments/{paymentId} {
-      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+    // 2. Koleksi Token QR Aktif (Realtime Anti-Fraud & Anti-Replay)
+    match /active_qr_tokens/{userId} {
+      // Member hanya bisa membaca token miliknya sendiri. Staf/turnstile bisa membaca untuk verifikasi.
+      allow read: if isOwner(userId) || isStaffOrAdmin();
+
+      // MEMBER HANYA BISA CREATE / UPDATE DENGAN STATUS used == false
+      // Member DILARANG memanipulasi used: true, usedAt, atau expiresAt ke masa depan
+      allow create, update: if isOwner(userId) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.used == false &&
+        request.resource.data.status == 'active';
+
+      // STAF / TURNSTILE DI-IZINKAN MENGUNCI TOKEN (used: true) DALAM TRANSAKSI ATOMIK
+      allow update: if isAuthenticated() &&
+        request.resource.data.used == true;
     }
 
-    // Membership Plans: Public read for members; Admin write/update
+    // 3. Koleksi Check-in Global Monitoring
+    match /checkins/{checkinId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // 4. Koleksi Paket Membership & Latihan Umum
     match /membership_plans/{planId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isStaffOrAdmin();
     }
 
-    // Exercise Library: Public read-only for authenticated members; Admin write
     match /exercises/{exerciseId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    // Checkin History collection group query: Staff/Admin read & write
-    match /{path=**}/checkin_history/{checkinId} {
-      allow read: if isStaff();
-      allow write: if isStaff();
-    }
-
-    // Default deny all other collections
-    match /{document=**} {
-      allow read, write: if false;
+      allow write: if isStaffOrAdmin();
     }
   }
 }

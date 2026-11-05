@@ -66,7 +66,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _selectedExperience = p.experienceLevel;
     _weeklyFrequency = p.weeklyWorkoutFrequency;
     _preferredDuration = p.preferredWorkoutDurationMinutes;
-    _selectedEquipment = List.from(p.availableEquipment);
+    _selectedEquipment = List<String>.from(p.availableEquipment);
   }
 
   @override

@@ -17,6 +17,8 @@ class FitSyncTextField extends StatelessWidget {
   final String? helperText;
   final bool readOnly;
   final VoidCallback? onTap;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
 
   const FitSyncTextField({
     super.key,
@@ -34,6 +36,8 @@ class FitSyncTextField extends StatelessWidget {
     this.helperText,
     this.readOnly = false,
     this.onTap,
+    this.textInputAction,
+    this.onFieldSubmitted,
   });
 
   @override
@@ -55,6 +59,8 @@ class FitSyncTextField extends StatelessWidget {
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          onFieldSubmitted: onFieldSubmitted,
           validator: validator,
           onChanged: onChanged,
           inputFormatters: inputFormatters,
